@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Test for TaskSerializer
+Tests for task serializers
 """
 from __future__ import unicode_literals
 
@@ -13,7 +13,7 @@ from dateutil.rrule import rrulestr
 from model_mommy import mommy
 from tests.base import TestBase
 
-from tasking.serializers import TaskSerializer
+from tasking.serializers import TaskSerializer, TaskLocationSerializer
 from tasking.utils import get_rrule_end, get_rrule_start
 
 
@@ -21,38 +21,6 @@ class TestTaskSerializer(TestBase):
     """
     Test the TaskSerializer
     """
-
-    def test_validate_bad_data(self):
-        """
-        Test validate method of TaskSerializer works as expected
-        for bad data
-        """
-        mocked_target_object = mommy.make('tasking.Task')
-
-        bad_target_id = OrderedDict(
-            name='Cow price',
-            description='Some description',
-            start=timezone.now(),
-            total_submission_target=10,
-            timing_rule='RRULE:FREQ=DAILY;INTERVAL=10;COUNT=5',
-            target_content_type=self.task_type.id,
-            target_id=1337
-        )
-
-        self.assertFalse(TaskSerializer(data=bad_target_id).is_valid())
-
-        bad_content_type = OrderedDict(
-            name='Cow price',
-            description='Some description',
-            start=timezone.now(),
-            total_submission_target=10,
-            timing_rule='RRULE:FREQ=DAILY;INTERVAL=10;COUNT=5',
-            target_content_type='foobar',
-            target_id=mocked_target_object.id,
-        )
-
-        self.assertFalse(TaskSerializer(data=bad_content_type).is_valid())
-
     def test_create_task(self):
         """
         Test that the serializer can create Task objects
@@ -143,6 +111,37 @@ class TestTaskSerializer(TestBase):
         self.assertEqual(set(expected_fields),
                          set(list(serializer_instance.data.keys())))
 
+    def test_validate_bad_data(self):
+        """
+        Test validate method of TaskSerializer works as expected
+        for bad data
+        """
+        mocked_target_object = mommy.make('tasking.Task')
+
+        bad_target_id = OrderedDict(
+            name='Cow price',
+            description='Some description',
+            start=timezone.now(),
+            total_submission_target=10,
+            timing_rule='RRULE:FREQ=DAILY;INTERVAL=10;COUNT=5',
+            target_content_type=self.task_type.id,
+            target_id=1337
+        )
+
+        self.assertFalse(TaskSerializer(data=bad_target_id).is_valid())
+
+        bad_content_type = OrderedDict(
+            name='Cow price',
+            description='Some description',
+            start=timezone.now(),
+            total_submission_target=10,
+            timing_rule='RRULE:FREQ=DAILY;INTERVAL=10;COUNT=5',
+            target_content_type='foobar',
+            target_id=mocked_target_object.id,
+        )
+
+        self.assertFalse(TaskSerializer(data=bad_content_type).is_valid())
+
     def test_validate_timing_rule(self):
         """
         Test that the serializer timing_rule validation works
@@ -217,3 +216,50 @@ class TestTaskSerializer(TestBase):
         task = serializer_instance.save()
 
         self.assertEqual(mocked_parent_task, task.parent)
+
+
+class TestTaskLocationSerializer(TestBase):
+    """
+    Test TaskLocationSerializer
+    """
+
+    def setUp(self):
+        """
+        Setup test
+        """
+        self.task = mommy.make('tasking.Task', name='Game Prices')
+        self.location = mommy.make('tasking.Location', name='Village Market')
+
+    def test_create_tasklocation(self):
+        """
+        Test creation of TaskLocation objects
+        """
+        rrule = 'RRULE:FREQ=DAILY;INTERVAL=10;COUNT=5'
+
+        data = {
+            'task': self.task.id,
+            'location': self.location.id,
+            'timing_rule': rrule,
+            'start': '14:00:00',
+            'end': '21:00:00'
+        }
+
+        serializer_instance = TaskLocationSerializer(data=data)
+        self.assertTrue(serializer_instance.is_valid())
+        task_location = serializer_instance.save()
+
+        self.assertDictContainsSubset(data, serializer_instance.data)
+        self.assertEqual(self.task, task_location.task)
+        self.assertEqual(self.location, task_location.location)
+
+        expected_fields = [
+            'task',
+            'location',
+            'timing_rule',
+            'created',
+            'modified',
+            'start',
+            'end'
+        ]
+        self.assertEqual(set(expected_fields),
+                         set(list(serializer_instance.data.keys())))
